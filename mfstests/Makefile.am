@@ -1,4 +1,4 @@
-TESTS = mfstest_datapack mfstest_clocks mfstest_crc32 mfstest_bitops mfstest_delayrun
+TESTS = mfstest_datapack mfstest_clocks mfstest_crc32 mfstest_bitops mfstest_delayrun mfstest_timeparser
 
 AM_CPPFLAGS = -I$(top_srcdir)/mfscommon
 
@@ -42,6 +42,10 @@ mfstest_delayrun_SOURCES = \
 mfstest_delayrun_LDADD = $(PTHREAD_LIBS)
 mfstest_delayrun_CFLAGS = $(PTHREAD_CFLAGS) -D_USE_PTHREADS
 mfstest_delayrun_CPPFLAGS = $(PTHREAD_CPPFLAGS) -I$(top_srcdir)/mfscommon
+
+mfstest_timeparser_SOURCES = \
+	mfstest_timeparser.c mfstest.h \
+	../mfscommon/timeparser.h ../mfscommon/timeparser.c
 
 distclean-local: distclean-am
 	-rm -rf ./$(DEPDIR)

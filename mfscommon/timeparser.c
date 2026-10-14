@@ -6,26 +6,23 @@
 
 #include "timeparser.h"
 
-int snprint_time_common(char *where,size_t mleng,uint32_t period,uint32_t *timetab,char *timesym,uint32_t timecount) {
-	uint64_t n,p10;
-	uint32_t timebase;
-	uint32_t i;
-	uint32_t intpart,decpart;
-	uint32_t resultlen;
-
-	resultlen = 0;
+static uint32_t snprint_time_common(char *where, size_t mleng, uint32_t period, uint32_t *timetab,
+	const char *timesym, const uint32_t timecount)
+{
+	uint32_t resultLen = 0;
 	if (mleng<=0) {
-		return resultlen;
+		return resultLen;
 	}
+
 	if (period==0) {
-		return snprintf(where,mleng,"0%c",timesym[timecount-1]);
+		return snprintf(where, mleng, "0%c", timesym[timecount-1]);
 	}
-	for (i=0 ; i<timecount ; i++) {
+
+	for (uint32_t i = 0 ; i<timecount ; i++) {
 		if (period >= timetab[i]) {
-			timebase = timetab[i];
-			n = period;
-			n *= 10;
-			p10 = n;
+			const uint32_t timebase = timetab[i];
+			uint64_t n = period * 10;
+			const uint64_t p10 = n;
 			if (timebase > 1) {
 				n += timebase / 2;
 				n /= timebase;
@@ -34,26 +31,27 @@ int snprint_time_common(char *where,size_t mleng,uint32_t period,uint32_t *timet
 				where[0] = '~';
 				where++;
 				mleng--;
-				resultlen = 1;
+				resultLen = 1;
 				if (mleng==0) {
-					return resultlen;
+					return resultLen;
 				}
 			}
-			intpart = n/10;
-			decpart = n%10;
+			const uint32_t intpart = n / 10;
+			const uint32_t decpart = n % 10;
 			if (decpart) {
-				resultlen += snprintf(where,mleng,"%u.%u%c",intpart,decpart,timesym[i]);
+				resultLen += snprintf(where,mleng,"%u.%u%c",intpart,decpart,timesym[i]);
 			} else {
-				resultlen += snprintf(where,mleng,"%u%c",intpart,timesym[i]);
+				resultLen += snprintf(where,mleng,"%u%c",intpart,timesym[i]);
 			}
-			return resultlen;
+			return resultLen;
 		}
 	}
-	// assert (resultlen==0)
-	if (resultlen<mleng) {
-		where[resultlen]=0;
+
+	if (resultLen<mleng) {
+		where[resultLen]=0;
 	}
-	return resultlen;
+
+	return resultLen;
 }
 
 /* formats (seconds mode):
@@ -68,14 +66,13 @@ int snprint_time_common(char *where,size_t mleng,uint32_t period,uint32_t *timet
  * [#w][#d][#h]
  */
 
-int parse_period_common(const char *str,uint32_t *ret,uint8_t hmode) {
-	uint64_t res,cur,ndiv,max;
+int parse_period_common(const char *str, uint32_t * const ret, const uint8_t hmode) {
+	uint64_t cur,ndiv,max;
 	uint32_t mul;
-	uint8_t mask;
 	uint8_t cmask;
 
-	mask = 0;
-	res = 0;
+	uint8_t mask = 0;
+	uint64_t res = 0;
 	while ((*str)==' ' || (*str)=='\t') {
 		str++;
 	}
@@ -87,9 +84,13 @@ int parse_period_common(const char *str,uint32_t *ret,uint8_t hmode) {
 			}
 			cur = 0;
 			ndiv = 1;
-			while ((*str)>='0' && (*str)<='9' && cur<UINT32_MAX) {
-				cur *= 10.0;
-				cur += (*str)-'0';
+			while ((*str)>='0' && (*str)<='9') {
+				const uint32_t digit = (*str)-'0';
+				if (cur > (UINT32_MAX-digit)/10) {
+					*ret = 0;
+					return TPARSE_VALUE_TOO_BIG;
+				}
+				cur = cur*10 + digit;
 				ndiv *= 10;
 				str++;
 			}
@@ -219,71 +220,23 @@ int parse_period_common(const char *str,uint32_t *ret,uint8_t hmode) {
 	}
 }
 
-int snprint_speriod(char *where,size_t mleng,uint32_t period) {
+uint32_t snprint_speriod(char* where, size_t mleng, uint32_t period) {
 	static uint32_t timetab[5] = {604800,86400,3600,60,1};
 	static char timesym[5] = {'w','d','h','m','s'};
 	return snprint_time_common(where,mleng,period,timetab,timesym,5);
 }
 
-int parse_speriod(const char *str,uint32_t *ret) {
+uint32_t parse_speriod(const char* str, uint32_t* ret) {
 	return parse_period_common(str,ret,0);
 }
 
-int snprint_hperiod(char *where,size_t mleng,uint32_t period) { //show period as days or hours; returns count of characters
+uint32_t snprint_hperiod(char* where, size_t mleng, uint32_t period) { //show period as days or hours; returns count of characters
 	static uint32_t timetab[3] = {168,24,1};
 	static char timesym[3] = {'w','d','h'};
 	return snprint_time_common(where,mleng,period,timetab,timesym,3);
 }
 
-int parse_hperiod(const char *str,uint32_t *ret) {
+uint32_t parse_hperiod(const char* str, uint32_t* ret) {
 	return parse_period_common(str,ret,1);
 }
 
-#if 0
-// test
-
-int main(int argc,char *argv[]) {
-	uint32_t tval;
-	char buff[20];
-	int (*parse)(const char*,uint32_t*);
-	int (*print)(char*,size_t,uint32_t);
-
-	if (argc<3 || (argv[1][0]!='S' && argv[1][0]!='H')) {
-		fprintf(stderr,"usage: %s [S|H] period ...\n",argv[0]);
-		return 1;
-	}
-	if (argv[1][0]=='S') {
-		parse = parse_speriod;
-		print = snprint_speriod;
-	} else {
-		parse = parse_hperiod;
-		print = snprint_hperiod;
-	}
-	argv+=2;
-	argc-=2;
-	while (argc>0) {
-		switch (parse(argv[0],&tval)) {
-			case TPARSE_OK:
-				print(buff,20,tval);
-				buff[19]='\0';
-				printf("str '%s' -> value: %"PRIu32" -> str '%s'\n",argv[0],tval,buff);
-				break;
-			case TPARSE_UNEXPECTED_CHAR:
-				if (tval) {
-					printf("unexpected char '%c' in '%s'\n",(char)tval,argv[0]);
-				} else {
-					printf("unexpected end in '%s'\n",argv[0]);
-				}
-				break;
-			case TPARSE_VALUE_TOO_BIG:
-				if (tval) {
-					printf("value too big in section '%c' in '%s'\n",(char)tval,argv[0]);
-				} else {
-					printf("value too big ('%s')\n",argv[0]);
-				}
-		}
-		argc--;
-		argv++;
-	}
-}
-#endif

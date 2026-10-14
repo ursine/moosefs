@@ -93,7 +93,7 @@ host_triplet = @host@
 target_triplet = @target@
 TESTS = mfstest_datapack$(EXEEXT) mfstest_clocks$(EXEEXT) \
 	mfstest_crc32$(EXEEXT) mfstest_bitops$(EXEEXT) \
-	mfstest_delayrun$(EXEEXT)
+	mfstest_delayrun$(EXEEXT) mfstest_timeparser$(EXEEXT)
 noinst_PROGRAMS = $(am__EXEEXT_1)
 subdir = mfstests
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -111,7 +111,7 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__EXEEXT_1 = mfstest_datapack$(EXEEXT) mfstest_clocks$(EXEEXT) \
 	mfstest_crc32$(EXEEXT) mfstest_bitops$(EXEEXT) \
-	mfstest_delayrun$(EXEEXT)
+	mfstest_delayrun$(EXEEXT) mfstest_timeparser$(EXEEXT)
 PROGRAMS = $(noinst_PROGRAMS)
 am__dirstamp = $(am__leading_dot)dirstamp
 am_mfstest_bitops_OBJECTS = mfstest_bitops-mfstest_bitops.$(OBJEXT) \
@@ -163,6 +163,15 @@ mfstest_delayrun_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
 	$(mfstest_delayrun_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) \
 	-o $@
+am_mfstest_timeparser_OBJECTS =  \
+	mfstest_timeparser-mfstest_timeparser.$(OBJEXT) \
+	../mfscommon/mfstest_timeparser-timeparser.$(OBJEXT)
+mfstest_timeparser_OBJECTS = $(am_mfstest_timeparser_OBJECTS)
+mfstest_timeparser_LDADD = $(LDADD)
+mfstest_timeparser_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
+	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
+	$(mfstest_timeparser_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+	$(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -186,11 +195,13 @@ am__depfiles_remade = ../mfscommon/$(DEPDIR)/mfstest_bitops-clocks.Po \
 	../mfscommon/$(DEPDIR)/mfstest_delayrun-delayrun.Po \
 	../mfscommon/$(DEPDIR)/mfstest_delayrun-mfslog.Po \
 	../mfscommon/$(DEPDIR)/mfstest_delayrun-strerr.Po \
+	../mfscommon/$(DEPDIR)/mfstest_timeparser-timeparser.Po \
 	./$(DEPDIR)/mfstest_bitops-mfstest_bitops.Po \
 	./$(DEPDIR)/mfstest_clocks-mfstest_clocks.Po \
 	./$(DEPDIR)/mfstest_crc32-mfstest_crc32.Po \
 	./$(DEPDIR)/mfstest_datapack-mfstest_datapack.Po \
-	./$(DEPDIR)/mfstest_delayrun-mfstest_delayrun.Po
+	./$(DEPDIR)/mfstest_delayrun-mfstest_delayrun.Po \
+	./$(DEPDIR)/mfstest_timeparser-mfstest_timeparser.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -212,10 +223,10 @@ am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
 SOURCES = $(mfstest_bitops_SOURCES) $(mfstest_clocks_SOURCES) \
 	$(mfstest_crc32_SOURCES) $(mfstest_datapack_SOURCES) \
-	$(mfstest_delayrun_SOURCES)
+	$(mfstest_delayrun_SOURCES) $(mfstest_timeparser_SOURCES)
 DIST_SOURCES = $(mfstest_bitops_SOURCES) $(mfstest_clocks_SOURCES) \
 	$(mfstest_crc32_SOURCES) $(mfstest_datapack_SOURCES) \
-	$(mfstest_delayrun_SOURCES)
+	$(mfstest_delayrun_SOURCES) $(mfstest_timeparser_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -658,6 +669,11 @@ mfstest_delayrun_SOURCES = \
 mfstest_delayrun_LDADD = $(PTHREAD_LIBS)
 mfstest_delayrun_CFLAGS = $(PTHREAD_CFLAGS) -D_USE_PTHREADS
 mfstest_delayrun_CPPFLAGS = $(PTHREAD_CPPFLAGS) -I$(top_srcdir)/mfscommon
+mfstest_timeparser_SOURCES = \
+	mfstest_timeparser.c mfstest.h \
+	../mfscommon/timeparser.h ../mfscommon/timeparser.c
+
+mfstest_timeparser_CFLAGS =
 all: all-am
 
 .SUFFIXES:
@@ -745,6 +761,13 @@ mfstest_datapack$(EXEEXT): $(mfstest_datapack_OBJECTS) $(mfstest_datapack_DEPEND
 mfstest_delayrun$(EXEEXT): $(mfstest_delayrun_OBJECTS) $(mfstest_delayrun_DEPENDENCIES) $(EXTRA_mfstest_delayrun_DEPENDENCIES) 
 	@rm -f mfstest_delayrun$(EXEEXT)
 	$(AM_V_CCLD)$(mfstest_delayrun_LINK) $(mfstest_delayrun_OBJECTS) $(mfstest_delayrun_LDADD) $(LIBS)
+../mfscommon/mfstest_timeparser-timeparser.$(OBJEXT):  \
+	../mfscommon/$(am__dirstamp) \
+	../mfscommon/$(DEPDIR)/$(am__dirstamp)
+
+mfstest_timeparser$(EXEEXT): $(mfstest_timeparser_OBJECTS) $(mfstest_timeparser_DEPENDENCIES) $(EXTRA_mfstest_timeparser_DEPENDENCIES)
+	@rm -f mfstest_timeparser$(EXEEXT)
+	$(AM_V_CCLD)$(mfstest_timeparser_LINK) $(mfstest_timeparser_OBJECTS) $(mfstest_timeparser_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -761,11 +784,13 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@../mfscommon/$(DEPDIR)/mfstest_delayrun-delayrun.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@../mfscommon/$(DEPDIR)/mfstest_delayrun-mfslog.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@../mfscommon/$(DEPDIR)/mfstest_delayrun-strerr.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@../mfscommon/$(DEPDIR)/mfstest_timeparser-timeparser.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mfstest_bitops-mfstest_bitops.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mfstest_clocks-mfstest_clocks.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mfstest_crc32-mfstest_crc32.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mfstest_datapack-mfstest_datapack.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mfstest_delayrun-mfstest_delayrun.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mfstest_timeparser-mfstest_timeparser.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)
@@ -978,6 +1003,34 @@ mfstest_delayrun-mfstest_delayrun.obj: mfstest_delayrun.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../mfscommon/strerr.c' object='../mfscommon/mfstest_delayrun-strerr.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(mfstest_delayrun_CPPFLAGS) $(CPPFLAGS) $(mfstest_delayrun_CFLAGS) $(CFLAGS) -c -o ../mfscommon/mfstest_delayrun-strerr.obj `if test -f '../mfscommon/strerr.c'; then $(CYGPATH_W) '../mfscommon/strerr.c'; else $(CYGPATH_W) '$(srcdir)/../mfscommon/strerr.c'; fi`
+
+mfstest_timeparser-mfstest_timeparser.o: mfstest_timeparser.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mfstest_timeparser_CFLAGS) $(CFLAGS) -MT mfstest_timeparser-mfstest_timeparser.o -MD -MP -MF $(DEPDIR)/mfstest_timeparser-mfstest_timeparser.Tpo -c -o mfstest_timeparser-mfstest_timeparser.o `test -f 'mfstest_timeparser.c' || echo '$(srcdir)/'`mfstest_timeparser.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mfstest_timeparser-mfstest_timeparser.Tpo $(DEPDIR)/mfstest_timeparser-mfstest_timeparser.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mfstest_timeparser.c' object='mfstest_timeparser-mfstest_timeparser.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mfstest_timeparser_CFLAGS) $(CFLAGS) -c -o mfstest_timeparser-mfstest_timeparser.o `test -f 'mfstest_timeparser.c' || echo '$(srcdir)/'`mfstest_timeparser.c
+
+mfstest_timeparser-mfstest_timeparser.obj: mfstest_timeparser.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mfstest_timeparser_CFLAGS) $(CFLAGS) -MT mfstest_timeparser-mfstest_timeparser.obj -MD -MP -MF $(DEPDIR)/mfstest_timeparser-mfstest_timeparser.Tpo -c -o mfstest_timeparser-mfstest_timeparser.obj `if test -f 'mfstest_timeparser.c'; then $(CYGPATH_W) 'mfstest_timeparser.c'; else $(CYGPATH_W) '$(srcdir)/mfstest_timeparser.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mfstest_timeparser-mfstest_timeparser.Tpo $(DEPDIR)/mfstest_timeparser-mfstest_timeparser.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mfstest_timeparser.c' object='mfstest_timeparser-mfstest_timeparser.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mfstest_timeparser_CFLAGS) $(CFLAGS) -c -o mfstest_timeparser-mfstest_timeparser.obj `if test -f 'mfstest_timeparser.c'; then $(CYGPATH_W) 'mfstest_timeparser.c'; else $(CYGPATH_W) '$(srcdir)/mfstest_timeparser.c'; fi`
+
+../mfscommon/mfstest_timeparser-timeparser.o: ../mfscommon/timeparser.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mfstest_timeparser_CFLAGS) $(CFLAGS) -MT ../mfscommon/mfstest_timeparser-timeparser.o -MD -MP -MF ../mfscommon/$(DEPDIR)/mfstest_timeparser-timeparser.Tpo -c -o ../mfscommon/mfstest_timeparser-timeparser.o `test -f '../mfscommon/timeparser.c' || echo '$(srcdir)/'`../mfscommon/timeparser.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../mfscommon/$(DEPDIR)/mfstest_timeparser-timeparser.Tpo ../mfscommon/$(DEPDIR)/mfstest_timeparser-timeparser.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../mfscommon/timeparser.c' object='../mfscommon/mfstest_timeparser-timeparser.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mfstest_timeparser_CFLAGS) $(CFLAGS) -c -o ../mfscommon/mfstest_timeparser-timeparser.o `test -f '../mfscommon/timeparser.c' || echo '$(srcdir)/'`../mfscommon/timeparser.c
+
+../mfscommon/mfstest_timeparser-timeparser.obj: ../mfscommon/timeparser.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mfstest_timeparser_CFLAGS) $(CFLAGS) -MT ../mfscommon/mfstest_timeparser-timeparser.obj -MD -MP -MF ../mfscommon/$(DEPDIR)/mfstest_timeparser-timeparser.Tpo -c -o ../mfscommon/mfstest_timeparser-timeparser.obj `if test -f '../mfscommon/timeparser.c'; then $(CYGPATH_W) '../mfscommon/timeparser.c'; else $(CYGPATH_W) '$(srcdir)/../mfscommon/timeparser.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../mfscommon/$(DEPDIR)/mfstest_timeparser-timeparser.Tpo ../mfscommon/$(DEPDIR)/mfstest_timeparser-timeparser.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../mfscommon/timeparser.c' object='../mfscommon/mfstest_timeparser-timeparser.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mfstest_timeparser_CFLAGS) $(CFLAGS) -c -o ../mfscommon/mfstest_timeparser-timeparser.obj `if test -f '../mfscommon/timeparser.c'; then $(CYGPATH_W) '../mfscommon/timeparser.c'; else $(CYGPATH_W) '$(srcdir)/../mfscommon/timeparser.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -1238,6 +1291,13 @@ mfstest_delayrun.log: mfstest_delayrun$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+mfstest_timeparser.log: mfstest_timeparser$(EXEEXT)
+	@p='mfstest_timeparser$(EXEEXT)'; \
+	b='mfstest_timeparser'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 .test.log:
 	@p='$<'; \
 	$(am__set_b); \
@@ -1340,11 +1400,13 @@ distclean: distclean-am
 	-rm -f ../mfscommon/$(DEPDIR)/mfstest_delayrun-delayrun.Po
 	-rm -f ../mfscommon/$(DEPDIR)/mfstest_delayrun-mfslog.Po
 	-rm -f ../mfscommon/$(DEPDIR)/mfstest_delayrun-strerr.Po
+	-rm -f ../mfscommon/$(DEPDIR)/mfstest_timeparser-timeparser.Po
 	-rm -f ./$(DEPDIR)/mfstest_bitops-mfstest_bitops.Po
 	-rm -f ./$(DEPDIR)/mfstest_clocks-mfstest_clocks.Po
 	-rm -f ./$(DEPDIR)/mfstest_crc32-mfstest_crc32.Po
 	-rm -f ./$(DEPDIR)/mfstest_datapack-mfstest_datapack.Po
 	-rm -f ./$(DEPDIR)/mfstest_delayrun-mfstest_delayrun.Po
+	-rm -f ./$(DEPDIR)/mfstest_timeparser-mfstest_timeparser.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-local distclean-tags
@@ -1398,11 +1460,13 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ../mfscommon/$(DEPDIR)/mfstest_delayrun-delayrun.Po
 	-rm -f ../mfscommon/$(DEPDIR)/mfstest_delayrun-mfslog.Po
 	-rm -f ../mfscommon/$(DEPDIR)/mfstest_delayrun-strerr.Po
+	-rm -f ../mfscommon/$(DEPDIR)/mfstest_timeparser-timeparser.Po
 	-rm -f ./$(DEPDIR)/mfstest_bitops-mfstest_bitops.Po
 	-rm -f ./$(DEPDIR)/mfstest_clocks-mfstest_clocks.Po
 	-rm -f ./$(DEPDIR)/mfstest_crc32-mfstest_crc32.Po
 	-rm -f ./$(DEPDIR)/mfstest_datapack-mfstest_datapack.Po
 	-rm -f ./$(DEPDIR)/mfstest_delayrun-mfstest_delayrun.Po
+	-rm -f ./$(DEPDIR)/mfstest_timeparser-mfstest_timeparser.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
