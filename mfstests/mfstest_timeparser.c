@@ -57,12 +57,25 @@ int main(void) {
 	check_speriod("1h 2m 3s",TPARSE_OK,3723);
 	check_speriod("1.5h",TPARSE_OK,5400);
 	check_speriod("1.25h",TPARSE_OK,4500);
+	check_speriod("1.4s",TPARSE_OK,1);
+	check_speriod("1.5s",TPARSE_OK,2);
+	check_speriod("0.5s",TPARSE_OK,1);
 	check_speriod("  2m\t",TPARSE_OK,120);
+	check_speriod("1W2D3H4M5S",TPARSE_OK,788645);
+	check_speriod("4294967295",TPARSE_OK,UINT32_MAX);
+	check_speriod("4294967296",TPARSE_VALUE_TOO_BIG,0);
+	check_speriod("4294967295w",TPARSE_VALUE_TOO_BIG,0);
 	check_speriod("1m60s",TPARSE_VALUE_TOO_BIG,0);
 	check_speriod("1h2h",TPARSE_UNEXPECTED_CHAR,0);
+	check_speriod("1s1m",TPARSE_UNEXPECTED_CHAR,0);
+	check_speriod("1h1m1m",TPARSE_UNEXPECTED_CHAR,0);
 	check_speriod("1x",TPARSE_UNEXPECTED_CHAR,0);
 	check_speriod("1.2.3h",TPARSE_UNEXPECTED_CHAR,0);
-	check_speriod("4294967296",TPARSE_VALUE_TOO_BIG,0);
+	check_speriod("1..5h",TPARSE_UNEXPECTED_CHAR,0);
+	check_speriod("1h ",TPARSE_OK,3600);
+	check_speriod("1 h",TPARSE_OK,3600);
+	check_speriod("1h2",TPARSE_UNEXPECTED_CHAR,0);
+	check_speriod("1h\n",TPARSE_OK,3600);
 	check_speriod("",TPARSE_UNEXPECTED_CHAR,0);
 	mfstest_end();
 
@@ -71,10 +84,18 @@ int main(void) {
 	check_hperiod("36",TPARSE_OK,36);
 	check_hperiod("1w2d3h",TPARSE_OK,219);
 	check_hperiod("2.5d",TPARSE_OK,60);
+	check_hperiod("1.4h",TPARSE_OK,1);
+	check_hperiod("1.5h",TPARSE_OK,2);
+	check_hperiod("4294967295",TPARSE_OK,UINT32_MAX);
+	check_hperiod("4294967296",TPARSE_VALUE_TOO_BIG,0);
 	check_hperiod("1d24h",TPARSE_VALUE_TOO_BIG,0);
+	check_hperiod("1h1d",TPARSE_UNEXPECTED_CHAR,0);
+	check_hperiod("1w1w",TPARSE_UNEXPECTED_CHAR,0);
 	check_hperiod("1m",TPARSE_UNEXPECTED_CHAR,0);
+	check_hperiod("1s",TPARSE_UNEXPECTED_CHAR,0);
 	check_hperiod("1h2h",TPARSE_UNEXPECTED_CHAR,0);
 	check_hperiod("168h",TPARSE_OK,168);
+	check_hperiod("  2d\t",TPARSE_OK,48);
 	mfstest_end();
 
 	mfstest_start(format_seconds_periods);
