@@ -2,11 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <errno.h>
+#include <ctype.h>
 #include <inttypes.h>
 
 #include "timeparser.h"
 
-static uint32_t snprint_time_common(char *where, size_t mleng, uint32_t period, uint32_t *timetab,
+static size_t snprint_time_common(char *where, size_t mleng, uint32_t period, uint32_t *timetab,
 	const char *timesym, const uint32_t timecount)
 {
 	uint32_t resultLen = 0;
@@ -66,177 +68,183 @@ static uint32_t snprint_time_common(char *where, size_t mleng, uint32_t period, 
  * [#w][#d][#h]
  */
 
-int parse_period_common(const char *str, uint32_t * const ret, const uint8_t hmode) {
-	uint64_t cur,ndiv,max;
-	uint32_t mul;
-	uint8_t cmask;
+typedef enum {
+	HMODE_SECONDS,
+	HMODE_HOURS
+} HMode_t;
 
-	uint8_t mask = 0;
-	uint64_t res = 0;
-	while ((*str)==' ' || (*str)=='\t') {
+typedef struct {
+	char suffix;
+	uint8_t order;
+	uint32_t multiplier;
+	uint32_t maximum_component;
+} PeriodUnit_t;
+
+static const PeriodUnit_t seconds_units[] = {
+	{'w', 4, 7 * 24 * 3600, UINT32_MAX},
+	{'d', 3, 24 * 3600, 7 * 24 * 3600},
+	{'h', 2, 3600, 24 * 3600},
+	{'m', 1, 60, 3600},
+	{'s', 0, 1, 60}
+};
+
+static const PeriodUnit_t hours_units[] = {
+	{'w', 2, 7 * 24, UINT32_MAX},
+	{'d', 1, 24, 7 * 24},
+	{'h', 0, 1, 24}
+};
+
+static const char *skip_horizontal_space(const char *str) {
+	while (*str == ' ' || *str == '\t') {
 		str++;
 	}
-	while (1) {
-		if ((*str)>='0' && (*str<='9')) {
-			if ((mask&0xC0)==0xC0) {
-				*ret = *str;
-				return TPARSE_UNEXPECTED_CHAR;
-			}
-			cur = 0;
-			ndiv = 1;
-			while ((*str)>='0' && (*str)<='9') {
-				const uint32_t digit = (*str)-'0';
-				if (cur > (UINT32_MAX-digit)/10) {
-					*ret = 0;
-					return TPARSE_VALUE_TOO_BIG;
-				}
-				cur = cur*10 + digit;
-				ndiv *= 10;
-				str++;
-			}
-			if (cur > UINT32_MAX) {
-				*ret = 0;
-				return TPARSE_VALUE_TOO_BIG;
-			}
-			while ((*str)==' ' || (*str)=='\t') {
-				str++;
-			}
-		} else {
-			*ret = *str;
-			return TPARSE_UNEXPECTED_CHAR;
+	return str;
+}
+
+static TParseResult_t parse_error(uint32_t *ret, const char *at, TParseResult_t result) {
+	*ret = (result == TPARSE_VALUE_TOO_BIG) ? 0 : (uint8_t)*at;
+	return result;
+}
+
+static const PeriodUnit_t *find_period_unit(char suffix, HMode_t hmode) {
+	const PeriodUnit_t *units = (hmode == HMODE_HOURS) ? hours_units : seconds_units;
+	size_t count = (hmode == HMODE_HOURS) ?
+		sizeof(hours_units) / sizeof(hours_units[0]) :
+		sizeof(seconds_units) / sizeof(seconds_units[0]);
+
+	if (suffix >= 'A' && suffix <= 'Z') {
+		suffix = (char)(suffix - 'A' + 'a');
+	}
+	for (size_t i = 0; i < count; i++) {
+		if (units[i].suffix == suffix) {
+			return &units[i];
 		}
-		switch (*str) {
-			case '.':
-				if (mask!=0) {
-					*ret = *str;
-					return TPARSE_UNEXPECTED_CHAR;
-				}
-				mask |= 0x80;
-				res = cur;
-				str++;
-				cmask = 0x80;
-				break;
-			case 'w':
-			case 'W':
-				if (hmode) {
-					mul = 7*24;
-				} else {
-					mul = 7*24*3600;
-				}
-				max = UINT32_MAX;
-				cmask = 0x10;
-				break;
-			case 'd':
-			case 'D':
-				if (hmode) {
-					mul = 24;
-					max = 7*24;
-				} else {
-					mul = 24*3600;
-					max = 7*24*3600;
-				}
-				cmask = 0x08;
-				break;
-			case 'h':
-			case 'H':
-				if (hmode) {
-					mul = 1;
-					max = 24;
-				} else {
-					mul = 3600;
-					max = 24*3600;
-				}
-				cmask = 0x04;
-				break;
-			case 'm':
-			case 'M':
-				if (hmode) {
-					*ret = *str;
-					return TPARSE_UNEXPECTED_CHAR;
-				}
-				mul = 60;
-				max = 3600;
-				cmask = 0x02;
-				break;
-			case 's':
-			case 'S':
-				if (hmode) {
-					*ret = *str;
-					return TPARSE_UNEXPECTED_CHAR;
-				}
-				mul = 1;
-				max = 60;
-				cmask = 0x01;
-				break;
-			case '\0':
-				if (mask==0) {
-					*ret = cur;
-					return TPARSE_OK;
-				}
-				*ret = 0;
-				return TPARSE_UNEXPECTED_CHAR;
-			default:
-				*ret = *str;
-				return TPARSE_UNEXPECTED_CHAR;
+	}
+	return NULL;
+}
+
+static TParseResult_t parse_period_common(const char *str, uint32_t * const ret, const HMode_t hmode) {
+	uint64_t total = 0;
+	uint8_t previous_order = UINT8_MAX;
+	int have_component = 0;
+	int saw_fraction = 0;
+
+	while (isspace(*str)) {
+		str++;
+	}
+
+	for (;;) {
+		char *end;
+		uint64_t fraction = 0;
+		uint64_t denominator = 1;
+		int has_fraction = 0;
+
+		if (!isdigit(*str)) {
+			return parse_error(ret, str, TPARSE_UNEXPECTED_CHAR);
 		}
-		if (cmask!=0x80) {
-			cur *= mul;
-			if (mask==0x80) {
-				res *= mul;
-				cur = (cur * 10) / ndiv;
-				cur = (cur/10) + (((cur%10)>=5)?1:0);
-				res += cur;
-				mask |= 0x40;
-				str++;
-			} else if (mask==0) {
-				mask |= cmask;
-				res = cur;
-				str++;
-			} else if ((mask & (0xC0 | ((cmask<<1)-1)))==0) {
-				if (cur < max) {
-					mask |= cmask;
-					res += cur;
-					str++;
-				} else {
-					*ret = *str;
-					return TPARSE_VALUE_TOO_BIG;
+
+		errno = 0;
+		uint64_t whole = strtoull(str, &end, 10);
+		if (errno == ERANGE || whole > UINT32_MAX) {
+			return parse_error(ret, str, TPARSE_VALUE_TOO_BIG);
+		}
+		str = skip_horizontal_space(end);
+
+		if (*str == '.') {
+			const char *fraction_start = ++str;
+			has_fraction = 1;
+			if (have_component) {
+				return parse_error(ret, str - 1, TPARSE_UNEXPECTED_CHAR);
+			}
+			while (isdigit(*str)) {
+				const uint32_t digit = (uint32_t)(*str - '0');
+				if (fraction > (UINT32_MAX - digit) / 10) {
+					return parse_error(ret, str, TPARSE_VALUE_TOO_BIG);
 				}
-			} else {
-				*ret = *str;
-				return TPARSE_UNEXPECTED_CHAR;
-			}
-			if (res > UINT32_MAX) {
-				*ret = 0;
-				return TPARSE_VALUE_TOO_BIG;
-			}
-			while ((*str)==' ' || (*str)=='\t') {
+				fraction = fraction * 10 + digit;
+				if (denominator <= UINT64_MAX / 10) {
+					denominator *= 10;
+				}
 				str++;
 			}
-			if (*str=='\0' || *str=='\r' || *str=='\n') {
-				*ret = res;
+			if (str == fraction_start) {
+				return parse_error(ret, str, TPARSE_UNEXPECTED_CHAR);
+			}
+			str = skip_horizontal_space(str);
+		}
+
+		if (*str == '\0' || isspace(*str)) {
+			const char *tail = str;
+			while (isspace(*tail)) {
+				tail++;
+			}
+			if (*tail != '\0' || has_fraction || have_component) {
+				return parse_error(ret, str, TPARSE_UNEXPECTED_CHAR);
+			}
+			*ret = (uint32_t)whole;
+			return TPARSE_OK;
+		}
+
+		const PeriodUnit_t *unit = find_period_unit(*str, hmode);
+		if (unit == NULL) {
+			return parse_error(ret, str, TPARSE_UNEXPECTED_CHAR);
+		}
+		if (have_component && (has_fraction || unit->order >= previous_order)) {
+			return parse_error(ret, str, TPARSE_UNEXPECTED_CHAR);
+		}
+		if (have_component && saw_fraction) {
+			return parse_error(ret, str, TPARSE_UNEXPECTED_CHAR);
+		}
+
+		uint64_t component = whole * unit->multiplier;
+		if (has_fraction) {
+			component += (fraction * unit->multiplier + denominator / 2) / denominator;
+		} else if (have_component && component >= unit->maximum_component) {
+			return parse_error(ret, str, TPARSE_VALUE_TOO_BIG);
+		}
+		if (component > UINT32_MAX - total) {
+			return parse_error(ret, str, TPARSE_VALUE_TOO_BIG);
+		}
+		total += component;
+		have_component = 1;
+		saw_fraction = has_fraction;
+		previous_order = unit->order;
+		str = skip_horizontal_space(str + 1);
+
+		if (*str == '\0') {
+			*ret = (uint32_t)total;
+			return TPARSE_OK;
+		}
+		if (*str == '\r' || *str == '\n') {
+			const char *tail = str;
+			while (isspace((unsigned char)*tail)) {
+				tail++;
+			}
+			if (*tail == '\0') {
+				*ret = (uint32_t)total;
 				return TPARSE_OK;
 			}
+			return parse_error(ret, str, TPARSE_UNEXPECTED_CHAR);
 		}
 	}
 }
 
-uint32_t snprint_speriod(char* where, size_t mleng, uint32_t period) {
+size_t snprint_speriod(char* where, size_t mleng, uint32_t period) {
 	static uint32_t timetab[5] = {604800,86400,3600,60,1};
 	static char timesym[5] = {'w','d','h','m','s'};
 	return snprint_time_common(where,mleng,period,timetab,timesym,5);
 }
 
-uint32_t parse_speriod(const char* str, uint32_t* ret) {
-	return parse_period_common(str,ret,0);
+TParseResult_t parse_speriod(const char* str, uint32_t* ret) {
+	return parse_period_common(str,ret,HMODE_SECONDS);
 }
 
-uint32_t snprint_hperiod(char* where, size_t mleng, uint32_t period) { //show period as days or hours; returns count of characters
+size_t snprint_hperiod(char* where, size_t mleng, uint32_t period) { //show period as days or hours; returns count of characters
 	static uint32_t timetab[3] = {168,24,1};
 	static char timesym[3] = {'w','d','h'};
 	return snprint_time_common(where,mleng,period,timetab,timesym,3);
 }
 
-uint32_t parse_hperiod(const char* str, uint32_t* ret) {
-	return parse_period_common(str,ret,1);
+TParseResult_t parse_hperiod(const char* str, uint32_t* ret) {
+	return parse_period_common(str,ret,HMODE_HOURS);
 }
-

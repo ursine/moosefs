@@ -60,6 +60,13 @@ int main(void) {
 	check_speriod("1.4s",TPARSE_OK,1);
 	check_speriod("1.5s",TPARSE_OK,2);
 	check_speriod("0.5s",TPARSE_OK,1);
+	check_speriod("1.5h2m",TPARSE_UNEXPECTED_CHAR,0);
+	char long_fraction[68] = "1.";
+	memset(long_fraction + 2, '0', 63);
+	long_fraction[65] = '5';
+	long_fraction[66] = 'h';
+	long_fraction[67] = '\0';
+	check_speriod(long_fraction,TPARSE_OK,3600);
 	check_speriod("  2m\t",TPARSE_OK,120);
 	check_speriod("1W2D3H4M5S",TPARSE_OK,788645);
 	check_speriod("4294967295",TPARSE_OK,UINT32_MAX);
