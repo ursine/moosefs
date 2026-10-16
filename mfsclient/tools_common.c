@@ -453,7 +453,7 @@ void dirname_inplace(char *path) {					//snapshot
 }
 
 int mystrmatch(const char *pat, const char *str, uint8_t insens) { //return 0 if str matches to pat
-	char p, s;
+	unsigned char p, s;
 	uint32_t chrmask[8];
 
 //	printf("pat: %s ; str: %s\n",pat,str);
@@ -488,37 +488,55 @@ int mystrmatch(const char *pat, const char *str, uint8_t insens) { //return 0 if
 				pat++;
 				neg = 1;
 			}
-			while ((p=*++pat) != ']') {
+			while ((p=(unsigned char)*++pat) != ']') {
+				if (!p) {
+					return -1;
+				}
 				if (p == '-') { //range up to
 					++pat;
 					if (!s
 					|| !*pat
 					|| *pat==']'
 					|| *pat=='-'
-					|| *pat<s) {
+					|| (unsigned char)*pat<s) {
 						fprintf(stderr,"error in range definition around '-' character\n");
 						return -1;
 					}
 					//printf("range from: %c, to: %c\n", s, *pat);
-					while(++s <= *pat) {
-						chrmask[s>>5] |= 1<<(s&0x1F);
+					while(++s <= (unsigned char)*pat) {
+						chrmask[s>>5] |= 1U<<(s&0x1F);
+						if (insens) {
+							unsigned char lower = (unsigned char)tolower(s);
+							unsigned char upper = (unsigned char)toupper(s);
+							chrmask[lower>>5] |= 1U<<(lower&0x1F);
+							chrmask[upper>>5] |= 1U<<(upper&0x1F);
+						}
 					}
 				} else { //normal character to matching
 					s=p;
-					chrmask[s>>5] |= 1<<(s&0x1F);
+					chrmask[s>>5] |= 1U<<(s&0x1F);
+					if (insens) {
+						unsigned char lower = (unsigned char)tolower(s);
+						unsigned char upper = (unsigned char)toupper(s);
+						chrmask[lower>>5] |= 1U<<(lower&0x1F);
+						chrmask[upper>>5] |= 1U<<(upper&0x1F);
+					}
 				}
 			}
 			//printf("after ']': %c", pat[1]);
-			s = *str;
+			if (!*str) {
+				return -1;
+			}
+			s = (unsigned char)*str;
 			if (insens) {
-				s = tolower(s);
+				s = (unsigned char)tolower(s);
 			}
 			if (neg) {
-				if (chrmask[s>>5] & (1<<(s&0x1F))) {
+				if (chrmask[s>>5] & (1U<<(s&0x1F))) {
 					return -1;
 				}
 			} else {
-				if (!(chrmask[s>>5] & (1<<(s&0x1F)))) {
+				if (!(chrmask[s>>5] & (1U<<(s&0x1F)))) {
 					return -1;
 				}
 			}
@@ -558,11 +576,11 @@ int mystrmatch(const char *pat, const char *str, uint8_t insens) { //return 0 if
 			++pat;
 		}
 		//text compare
-		p = *pat++;
-		s = *str++;
+		p = (unsigned char)*pat++;
+		s = (unsigned char)*str++;
 		if (insens) {
-			p = tolower(p);
-			s = tolower(s);
+			p = (unsigned char)tolower(p);
+			s = (unsigned char)tolower(s);
 		}
 	} while (p == s);
 
@@ -804,7 +822,7 @@ int open_master_conn(const char *name, uint32_t *inode, mode_t *mode, uint64_t *
 	return -1;
 }
 
-int tparse_seconds(const char *str,uint32_t *ret) {
+int tparse_seconds(const char *str, uint32_t *ret) {
 	uint32_t rettmp;
 	switch (parse_speriod(str,&rettmp)) {
 		case TPARSE_OK:
