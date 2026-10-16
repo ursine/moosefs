@@ -18,6 +18,8 @@
 
 #include "tools_common.h"
 
+#include <fnmatch.h>
+
 // const char id[]="@(#) version: " VERSSTR ", written by Jakub Kruszona-Zawadzki";
 
 static int current_master = -1;
@@ -69,7 +71,7 @@ void set_hu_flags(int ch) {
 	}
 }
 
-void print_humanized_number(const char *format,uint64_t number,uint8_t flags) {
+void print_humanized_number(const char *format,uint64_t number, uint8_t flags) {
 	char numbuf[6];	// [ "xxx" , "xx" , "x" , "x.x" ] + ["" , "X" , "Xi"]
 	uint64_t divisor;
 	uint16_t b;
@@ -123,28 +125,40 @@ void print_humanized_number(const char *format,uint64_t number,uint8_t flags) {
 	printf(format,numbuf);
 }
 
-int my_get_number(const char *str,uint64_t *ret,uint64_t max,uint8_t bytesflag) {
-	uint64_t pval,val,frac,fracdiv,mult;
-	long double drval;
-	int f;
-	pval=0;
-	val=0;
-	frac=0;
-	fracdiv=1;
-	f=0;
-	while (*str>='0' && *str<='9') {
+static const struct {
+	char suffix;
+	uint64_t decimal;
+	uint64_t binary;
+} number_multipliers[] = {
+	{'k', UINT64_C(1000), 0},
+	{'K', 0, UINT64_C(1024)},
+	{'M', UINT64_C(1000000), UINT64_C(1048576)},
+	{'G', UINT64_C(1000000000), UINT64_C(1073741824)},
+	{'T', UINT64_C(1000000000000), UINT64_C(1099511627776)},
+	{'P', UINT64_C(1000000000000000), UINT64_C(1125899906842624)},
+	{'E', UINT64_C(1000000000000000000), UINT64_C(1152921504606846976)}
+};
+
+MyGetNumberReturn_t my_get_number(const char* str, uint64_t* const ret, const uint64_t max, const uint8_t bytesFlag) {
+	uint64_t pval = 0;
+	uint64_t val = 0;
+	int f = 0;
+	while (isdigit(*str)) {
 		f=1;
 		val*=10;
 		val+=(*str-'0');
 		str++;
 		if (val<pval) {
-			return -2;
+			return MGN_OVERFLOW;
 		}
 		pval = val;
 	}
+
+	uint64_t frac = 0;
+	uint64_t fracdiv = 1;
 	if (*str=='.') {	// accept ".5" (without 0)
 		str++;
-		while (*str>='0' && *str<='9') {
+		while (isdigit(*str)) {
 			if (fracdiv<UINT64_C(1000000000000000000)) { // if there are more than 18 digits after '.' then ignore them silently
 				fracdiv*=10;
 				frac*=10;
@@ -153,88 +167,61 @@ int my_get_number(const char *str,uint64_t *ret,uint64_t max,uint8_t bytesflag) 
 			str++;
 		}
 		if (fracdiv==1) {	// if there was '.' expect number afterwards
-			return -1;
+			return MGN_FAILURE;
 		}
 	} else if (f==0) {	// but not empty string
-		return -1;
+		return MGN_FAILURE;
 	}
-	if (str[0]=='\0' || (bytesflag && str[0]=='B' && str[1]=='\0')) {	//
+
+	uint64_t mult = 0;
+	int binary = 0;
+	if (str[0]=='\0' || (bytesFlag && str[0]=='B' && str[1]=='\0')) {	//
 		mult = UINT64_C(1);
-	} else if (str[0]!='\0' && (str[1]=='\0' || (bytesflag && str[1]=='B' && str[2]=='\0'))) {
-		switch (str[0]) {
-		case 'k':
-			mult = UINT64_C(1000);
-			break;
-		case 'M':
-			mult = UINT64_C(1000000);
-			break;
-		case 'G':
-			mult = UINT64_C(1000000000);
-			break;
-		case 'T':
-			mult = UINT64_C(1000000000000);
-			break;
-		case 'P':
-			mult = UINT64_C(1000000000000000);
-			break;
-		case 'E':
-			mult = UINT64_C(1000000000000000000);
-			break;
-		default:
-			return -1;
-		}
-	} else if (str[0]!='\0' && str[1]=='i' && (str[2]=='\0' || (bytesflag && str[2]=='B' && str[3]=='\0'))) {
-		switch (str[0]) {
-		case 'K':
-			mult = UINT64_C(1024);
-			break;
-		case 'M':
-			mult = UINT64_C(1048576);
-			break;
-		case 'G':
-			mult = UINT64_C(1073741824);
-			break;
-		case 'T':
-			mult = UINT64_C(1099511627776);
-			break;
-		case 'P':
-			mult = UINT64_C(1125899906842624);
-			break;
-		case 'E':
-			mult = UINT64_C(1152921504606846976);
-			break;
-		default:
-			return -1;
-		}
+	} else if (str[0]!='\0' && (str[1]=='\0' || (bytesFlag && str[1]=='B' && str[2]=='\0'))) {
+		binary = 0;
+	} else if (str[0]!='\0' && str[1]=='i' && (str[2]=='\0' || (bytesFlag && str[2]=='B' && str[3]=='\0'))) {
+		binary = 1;
 	} else {
-		return -1;
+		return MGN_FAILURE;
+	}
+
+	if (mult == 0) {
+		for (size_t i=0 ; i<sizeof(number_multipliers)/sizeof(number_multipliers[0]) ; i++) {
+			if (number_multipliers[i].suffix == str[0]) {
+				mult = binary ? number_multipliers[i].binary : number_multipliers[i].decimal;
+				break;
+			}
+		}
+		if (mult == 0) {
+			return MGN_FAILURE;
+		}
 	}
 	if (frac==0) { // no fraction ?
 		if (val > (UINT64_MAX / mult)) {
-			return -2;
+			return MGN_OVERFLOW;
 		}
 		val *= mult;
 		if (val > max) {
-			return -2;
+			return MGN_OVERFLOW;
 		}
 	} else {
-		drval = frac;
+		long double drval = frac;
 		drval /= fracdiv;
 		drval += val;
 		drval *= mult;
 		if (drval>UINT64_MAX) { // value too big - warning 2**64 can pass this because of rounding UINT64_MAX to closest double (and long double) which is 2**64 not (2**64-1) !!!
-			return -2;
+			return MGN_OVERFLOW;
 		}
 		val = (uint64_t)(drval + 0.5);
 		if (val < drval-1.0) { // arithmetic overflow - practically we need this mainly because of value close to 2**64 that can pass previous value
-			return -2;
+			return MGN_OVERFLOW;
 		}
 		if (val > max) {
-			return -2;
+			return MGN_OVERFLOW;
 		}
 	}
 	*ret = val;
-	return 1;
+	return MGN_OKAY;
 }
 
 void print_number(uint64_t number, uint8_t flags) {
@@ -298,16 +285,22 @@ void print_number_desc(const char *prefix, const char *suffix, uint64_t number, 
 	}
 }
 
-uint8_t print_number_size(uint8_t flags) {
+uint8_t print_number_size(const uint8_t flags) {
 	switch (humode) {
 		case 0:
 			if (numbermode==0) {
 				return (flags&PNUM_32BIT)?10:20;
-			} else if (numbermode==1) {
+			}
+
+			if (numbermode==1) {
 				return (flags&PNUM_32BIT)?7:17;
-			} else if (numbermode==2) {
+			}
+
+			if (numbermode==2) {
 				return (flags&PNUM_32BIT)?4:14;
-			} else if (numbermode==3) {
+			}
+
+			if (numbermode==3) {
 				return (flags&PNUM_32BIT)?1:11;
 			}
 			break;
@@ -346,76 +339,81 @@ void print_number_quota(const char *prefix, const char *suffix, uint64_t number,
 	}
 }
 
-int bsd_basename(const char *path,char *bname) {	//snapshot:make/remove_snapshot()
-	const char *endp, *startp;
+static const char *path_trim_trailing_slashes(const char *path) {
+	const char *end = path + strlen(path);
+	while (end > path + 1 && end[-1] == '/') {
+		end--;
+	}
+	return end;
+}
 
+static int path_copy_range(char * const output, const char * const start, const char * const end) {
+	const size_t length = (size_t)(end - start);
+	if (length >= PATH_MAX) {
+		return -1;
+	}
+	memcpy(output, start, length);
+	output[length] = '\0';
+	return 0;
+}
+
+int bsd_basename(const char * const path, char * const bname) {	//snapshot:make/remove_snapshot()
 	// Empty or NULL string gets treated as "."
 	if (path == NULL || *path == '\0') {
-		(void)strcpy(bname, ".");
+		strcpy(bname, ".");
 		return 0;
 	}
 
-	// Strip trailing slashes
-	endp = path + strlen(path) - 1;
-	while (endp > path && *endp == '/') {
-		endp--;
-	}
+	const char * const endp = path_trim_trailing_slashes(path);
 
 	// All slashes becomes "/"
-	if (endp == path && *endp == '/') {
+	if (endp == path + 1 && path[0] == '/') {
 		(void)strcpy(bname, "/");
 		return 0;
 	}
 
 	// Find the start of the base
-	startp = endp;
-	while (startp > path && *(startp - 1) != '/') {
+	const char *startp = endp - 1;
+	while (startp > path && startp[-1] != '/') {
 		startp--;
 	}
-	if (endp - startp + 2 > PATH_MAX) {
-		return -1;
-	}
-	(void)strncpy(bname, startp, endp - startp + 1);
-	bname[endp - startp + 1] = '\0';
-	return 0;
+	return path_copy_range(bname, startp, endp);
 }
 
 int bsd_dirname(const char *path,char *bname) {		//snapshot
-	const char *endp;
-
 	// Empty or NULL string gets treated as "."
 	if (path == NULL || *path == '\0') {
 		(void)strcpy(bname, ".");
 		return 0;
 	}
 
-	// Strip trailing slashes
-	endp = path + strlen(path) - 1;
-	while (endp > path && *endp == '/') {
-		endp--;
+	const char *endp = path_trim_trailing_slashes(path);
+	if (endp == path + 1 && path[0] == '/') {
+		(void)strcpy(bname, "/");
+		return 0;
 	}
 
 	// Find the start of the dir
-	while (endp > path && *endp != '/') {
+	while (endp > path && endp[-1] != '/') {
 		endp--;
 	}
 
 	// Either the dir is "/" or there are no slashes
-	if (endp == path) {
-		(void)strcpy(bname, *endp == '/' ? "/" : ".");
+	if (endp == path || (endp == path + 1 && path[0] == '/')) {
+		(void)strcpy(bname, endp == path ? "." : "/");
 		return 0;
-	} else {
-		do {
-			endp--;
-		} while (endp > path && *endp == '/');
 	}
 
-	if (endp - path + 2 > PATH_MAX) {
-		return -1;
+	while (endp > path && endp[-1] == '/') {
+		endp--;
 	}
-	(void)strncpy(bname, path, endp - path + 1);
-	bname[endp - path + 1] = '\0';
-	return 0;
+
+	if (endp == path && path[0] == '/') {
+		strcpy(bname, "/");
+		return 0;
+	}
+
+	return path_copy_range(bname, path, endp);
 }
 
 void dirname_inplace(char *path) {					//snapshot
@@ -452,11 +450,14 @@ void dirname_inplace(char *path) {					//snapshot
 	}
 }
 
-int mystrmatch(const char *pat, const char *str, uint8_t insens) { //return 0 if str matches to pat
+int mystrmatch(const char *pat, const char *str, const uint8_t insens) { //return 0 if str matches to pat
+#if defined(FNM_IGNORECASE)
+	return fnmatch(pat, str, insens ? FNM_IGNORECASE : 0) == 0 ? 0 : -1;
+#elif defined(FNM_CASEFOLD)
+	return fnmatch(pat, str, insens ? FNM_CASEFOLD : 0) == 0 ? 0 : -1;
+#else
 	unsigned char p, s;
 	uint32_t chrmask[8];
-
-//	printf("pat: %s ; str: %s\n",pat,str);
 
 	do {
 		if ((*pat == '*' && !pat[1])    //pattern ended with '*'
@@ -480,7 +481,6 @@ int mystrmatch(const char *pat, const char *str, uint8_t insens) { //return 0 if
 		//char range
 		if (*pat == '[') {
 			uint8_t neg;
-			//printf("***range in regexp***\n");
 			memset(chrmask,0,sizeof(chrmask)); // = 0;
 			s = 0;
 			neg = 0;
@@ -586,6 +586,7 @@ int mystrmatch(const char *pat, const char *str, uint8_t insens) { //return 0 if
 
 	return -1;
 }//*/
+#endif
 
 int master_register(int rfd) {
 #define PAYLOAD 73

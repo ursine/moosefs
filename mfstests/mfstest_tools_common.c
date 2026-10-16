@@ -5,20 +5,19 @@
  * Public License, version 2 only.
  */
 
-#define _POSIX_C_SOURCE 200809L
-
 #include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "tools_common.h"
 #include "mfstest.h"
 
 static void check_number(const char *input, uint8_t bytesflag, int expected_result, uint64_t expected_value) {
 	uint64_t value = UINT64_C(0xA5A5A5A5A5A5A5A5);
-	int result = my_get_number(input, &value, UINT64_MAX, bytesflag);
+	const int result = my_get_number(input, &value, UINT64_MAX, bytesflag);
 	mfstest_assert_int32_eq(result, expected_result);
 	if (expected_result > 0) {
 		mfstest_assert_uint64_eq(value, expected_value);
@@ -231,12 +230,45 @@ static void test_time_wrappers(void) {
 }
 
 int main(void) {
+	FILE *stderr_capture = tmpfile();
+	int saved_stderr = -1;
+	int capture_active = 0;
+	int result;
+	char buffer[4096];
+	size_t bytes_read;
+
 	mfstest_init();
+	if (stderr_capture != NULL) {
+		saved_stderr = dup(STDERR_FILENO);
+		if (saved_stderr >= 0 && dup2(fileno(stderr_capture), STDERR_FILENO) >= 0) {
+			capture_active = 1;
+		} else if (saved_stderr >= 0) {
+			close(saved_stderr);
+			saved_stderr = -1;
+		}
+	}
 	test_number_parser();
 	test_path_helpers();
 	test_string_matcher();
 	test_number_format_widths();
 	test_command_dispatch();
 	test_time_wrappers();
-	mfstest_return();
+	result = mfstest_result;
+	if (capture_active) {
+		fflush(stderr);
+		if (dup2(saved_stderr, STDERR_FILENO) < 0) {
+			result = 1;
+		}
+		close(saved_stderr);
+		if (result != 0 && fseek(stderr_capture, 0, SEEK_SET) == 0) {
+			while ((bytes_read = fread(buffer, 1, sizeof(buffer), stderr_capture)) > 0) {
+				fwrite(buffer, 1, bytes_read, stderr);
+			}
+			fflush(stderr);
+		}
+	}
+	if (stderr_capture != NULL) {
+		fclose(stderr_capture);
+	}
+	return result;
 }

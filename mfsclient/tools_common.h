@@ -9,18 +9,9 @@
 
 typedef int (*execfn)(int argc,char *argv[]);
 
-/*
-typedef struct _command {
-	const char *command;
-	const char *subcommand;
-	execfn executable;
-} command;
-*/
-
 typedef struct _command {
 	const char *cmd;
 	execfn handler;
-//	const char *desc;
 } command;
 
 #define MAXCMD 50
@@ -41,12 +32,20 @@ void set_hu_flags(int ch);
 #define PNUM_VALID 4
 #define PNUM_ALIGN 8
 
+
+typedef enum
+{
+	MGN_OKAY = 1,
+	MGN_FAILURE = -1,
+	MGN_OVERFLOW = -2
+} MyGetNumberReturn_t;
+
 void print_number(uint64_t number,uint8_t flags); // uses PNUM_BYTES,PNUM_32BIT,PNUM_ALIGN
 void print_number_desc(const char *prefix, const char *suffix, uint64_t number, uint8_t flags); // uses PNUM_BYTES,PNUM_32BIT
 void print_number_quota(const char *prefix, const char *suffix, uint64_t number, uint8_t flags); // all flags are used
 uint8_t print_number_size(uint8_t flags); // uses PNUM_32BIT
 
-int my_get_number(const char *str,uint64_t *ret,uint64_t max,uint8_t bytesflag);
+MyGetNumberReturn_t my_get_number(const char *str, uint64_t *ret, uint64_t max, uint8_t bytesFlag);
 
 int tparse_seconds(const char *str,uint32_t *ret);
 int tparse_hours(const char *str,uint16_t *ret);

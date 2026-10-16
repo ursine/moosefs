@@ -67,15 +67,15 @@ if test "X$MFS_FORCE_DEBUG" = "XYES"; then
 	enable_debug=yes
 fi
 
-AX_CHECK_COMPILE_FLAG([-std=c11], [ CCSTD="-std=c11" ], [
-	AX_CHECK_COMPILE_FLAG([-std=gnu99], [ CCSTD="-std=gnu99" ], [
-		AX_CHECK_COMPILE_FLAG([-std=c99], [ CCSTD="-std=c99" ], [
-			CCSTD=""
-		])
-	])
+AX_CHECK_COMPILE_FLAG([-std=c17], [ CCSTD="-std=c17" ], [
+	AC_MSG_ERROR([a C17-compatible compiler is required])
 ])
 
-if test "$CCSTD" = "-std=c11"; then
+dnl POSIX.1-2024 feature visibility. Put this in CPPFLAGS so configure probes
+dnl and every target see the same interfaces, including --enable-externalcflags.
+CPPFLAGS="$CPPFLAGS -D_POSIX_C_SOURCE=202405L"
+
+if test "$CCSTD" = "-std=c17"; then
 	ac_have_atomics=maybe
 	AC_DEFINE([HAVE_C11_COMPILER], [1], [Compiler understands C11 standard])
 else
@@ -85,9 +85,9 @@ fi
 if test "$GCC" = "yes"; then
 	if test "$enable_externalcflags" != "yes" ; then
 		if test "$enable_gperftools" = "yes" -o "$enable_debug" = "yes" ; then
-			CFLAGS="-O2 -fno-omit-frame-pointer -g -DMFSDEBUG $CCSTD -Wall -Wextra -Wshadow -pedantic -fwrapv -Wframe-larger-than=65536"
+			CFLAGS="-O2 -fno-omit-frame-pointer -g -DMFSDEBUG $CCSTD -Wall -Wextra -Wpedantic -Wshadow -Wformat=2 -Wundef -Wcast-qual -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wswitch-enum -Wpointer-arith -Wcast-align -Wstrict-aliasing=2 -Wframe-larger-than=65536 -fwrapv"
 		else
-			CFLAGS="-O2 $CFLAGS -g $CCSTD -Wall -Wextra -Wshadow -pedantic -fwrapv"
+			CFLAGS="-O2 $CFLAGS -g $CCSTD -Wall -Wextra -Wpedantic -Wshadow -Wformat=2 -Wundef -Wcast-qual -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wswitch-enum -Wpointer-arith -Wcast-align -Wstrict-aliasing=2 -fwrapv"
 		fi
 	fi
 	if test "$enable_gperftools" = "yes"; then

@@ -6,6 +6,16 @@ set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
 
+add_compile_definitions(_POSIX_C_SOURCE=202405L)
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+	add_compile_options(
+		-Wall -Wextra -Wpedantic -Wshadow -Wformat=2 -Wundef
+		-Wcast-qual -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes
+		-Wold-style-definition -Wswitch-enum -Wpointer-arith -Wcast-align
+		-Wstrict-aliasing=2
+	)
+endif()
+
 include(CheckIncludeFile)
 include(CheckFunctionExists)
 include(CheckSymbolExists)
