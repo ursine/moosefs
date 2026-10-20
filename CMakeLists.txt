@@ -7,6 +7,11 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
 
 add_compile_definitions(_POSIX_C_SOURCE=202405L)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	# Match configure.ac's Linux feature-test and large-file settings. These
+	# expose interfaces used throughout MooseFS, including lockf and tm_gmtoff.
+	add_compile_definitions(_GNU_SOURCE _FILE_OFFSET_BITS=64 DEFAULT_SUGID_CLEAR_MODE_EXT)
+endif()
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
 	add_compile_options(
 		-Wall -Wextra -Wpedantic -Wshadow -Wformat=2 -Wundef

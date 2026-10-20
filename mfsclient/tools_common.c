@@ -585,8 +585,8 @@ int mystrmatch(const char *pat, const char *str, const uint8_t insens) { //retur
 	} while (p == s);
 
 	return -1;
-}//*/
 #endif
+}
 
 int master_register(int rfd) {
 #define PAYLOAD 73
