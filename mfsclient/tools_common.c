@@ -18,8 +18,6 @@
 
 #include "tools_common.h"
 
-#include <fnmatch.h>
-
 // const char id[]="@(#) version: " VERSSTR ", written by Jakub Kruszona-Zawadzki";
 
 static int current_master = -1;
@@ -451,11 +449,6 @@ void dirname_inplace(char *path) {					//snapshot
 }
 
 int mystrmatch(const char *pat, const char *str, const uint8_t insens) { //return 0 if str matches to pat
-#if defined(FNM_IGNORECASE)
-	return fnmatch(pat, str, insens ? FNM_IGNORECASE : 0) == 0 ? 0 : -1;
-#elif defined(FNM_CASEFOLD)
-	return fnmatch(pat, str, insens ? FNM_CASEFOLD : 0) == 0 ? 0 : -1;
-#else
 	unsigned char p, s;
 	uint32_t chrmask[8];
 
@@ -585,7 +578,6 @@ int mystrmatch(const char *pat, const char *str, const uint8_t insens) { //retur
 	} while (p == s);
 
 	return -1;
-#endif
 }
 
 int master_register(int rfd) {

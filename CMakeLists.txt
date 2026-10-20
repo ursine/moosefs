@@ -6,11 +6,18 @@ set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
 
-add_compile_definitions(_POSIX_C_SOURCE=202405L)
+# Darwin hides legacy APIs such as getpass whenever _POSIX_C_SOURCE is set,
+# even with _DARWIN_C_SOURCE enabled.
+if(NOT APPLE)
+	add_compile_definitions(_POSIX_C_SOURCE=202405L)
+endif()
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	# Match configure.ac's Linux feature-test and large-file settings. These
 	# expose interfaces used throughout MooseFS, including lockf and tm_gmtoff.
 	add_compile_definitions(_GNU_SOURCE _FILE_OFFSET_BITS=64 DEFAULT_SUGID_CLEAR_MODE_EXT)
+elseif(APPLE)
+	# Enable the Darwin interfaces and macOS permission semantics.
+	add_compile_definitions(_DARWIN_C_SOURCE DEFAULT_SUGID_CLEAR_MODE_OSX)
 endif()
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
 	add_compile_options(
@@ -95,6 +102,11 @@ set(feature_headers
 	HAVE_LINUX_NBD_H=linux/nbd.h HAVE_LINUX_FS_H=linux/fs.h HAVE_LINUX_OOM_H=linux/oom.h
 )
 set(config_definitions)
+if(APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	# config.h.in undefines the flag supplied by Linux and FUSE compile options.
+	# Restore it in config.h so macFUSE sees the required large-file setting.
+	list(APPEND config_definitions "#define _FILE_OFFSET_BITS 64")
+endif()
 foreach(pair IN LISTS feature_headers)
 	string(REPLACE "=" ";" fields "${pair}")
 	list(GET fields 0 macro)
@@ -302,8 +314,12 @@ if(MFS_BUILD_CLIENT)
 	endif()
 
 	if(MFS_BUILD_MOUNT AND PkgConfig_FOUND)
-		pkg_check_modules(FUSE3 QUIET IMPORTED_TARGET fuse3>=3.2.1)
-		if(FUSE3_FOUND)
+		# MooseFS uses the macFUSE 2 compatibility API on macOS, as in
+		# configure.ac. macFUSE 3 uses different Darwin attribute callbacks.
+		if(NOT APPLE)
+			pkg_check_modules(FUSE3 QUIET IMPORTED_TARGET fuse3>=3.2.1)
+		endif()
+		if(FUSE3_FOUND AND NOT APPLE)
 			file(APPEND "${MFS_GENERATED_DIR}/config.h" "#define HAVE_FUSE3 1\n")
 			mfs_add_automake_executable(mfsmount mfsclient/Makefile.am)
 			target_compile_definitions(mfsmount PRIVATE _USE_PTHREADS APPNAME=mfsmount MFSMOUNT=1 HAVE_FUSE3)
@@ -319,6 +335,12 @@ if(MFS_BUILD_CLIENT)
 			endif()
 		endif()
 	endif()
+endif()
+
+# Apple Clang searches /usr/local/include before explicit system include paths.
+# Keep the selected FUSE headers ahead of compatibility headers installed there.
+if(TARGET mfsmount)
+	set_target_properties(mfsmount PROPERTIES NO_SYSTEM_FROM_IMPORTED TRUE)
 endif()
 
 if(MFS_BUILD_NETDUMP AND PkgConfig_FOUND)

@@ -38,12 +38,12 @@ static void check_hperiod(const char *input,int expected_result,uint32_t expecte
 	}
 }
 
-static void check_format(int (*formatter)(char*,size_t,uint32_t),uint32_t value,const char *expected) {
+static void check_format(size_t (*formatter)(char*,size_t,uint32_t),uint32_t value,const char *expected) {
 	char buffer[32];
-	int length;
+	size_t length;
 	memset(buffer,0xA5,sizeof(buffer));
 	length = formatter(buffer,sizeof(buffer),value);
-	mfstest_assert_int32_eq(length,(int)strlen(expected));
+	mfstest_assert_uint64_eq(length,strlen(expected));
 	mfstest_assert_int32_eq(strcmp(buffer,expected),0);
 }
 
