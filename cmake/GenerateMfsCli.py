@@ -8,7 +8,7 @@ import sys
 
 source_path, output_path = map(pathlib.Path, sys.argv[1:3])
 source = source_path.read_text()
-pattern = re.compile(r"^(from\s+(common\.[a-z_]+)\s+import\s+\*\s*)#\s*MFS_INLINE_IMPORT\s*$", re.M)
+pattern = re.compile(r"^(from\s+(common\.[a-z_]+)\s+import\s+\*\s*)#\s*MFS_INLINE_IMPORT[^\S\r\n]*$", re.M)
 
 
 def inline(match):
